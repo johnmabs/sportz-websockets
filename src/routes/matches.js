@@ -39,16 +39,17 @@ matchRouter.get("/", async (req, res) => {
 
 matchRouter.post("/", async (req, res) => {
   const parsed = createMatchSchema.safeParse(req.body);
-  const {
-    data: { startTime, endTime, homeScore, awayScore },
-  } = parsed;
 
   if (!parsed.success) {
     return res.status(400).json({
       error: "Invalid payload.",
-      details: JSON.stringify(parsed.error),
+      details: parsed.error.issues,
     });
   }
+
+  const {
+    data: { startTime, endTime, homeScore, awayScore },
+  } = parsed;
 
   try {
     const [event] = await db
@@ -62,6 +63,12 @@ matchRouter.post("/", async (req, res) => {
         status: getMatchStatus(startTime, endTime),
       })
       .returning();
+
+    if (res.app.locals.broadcastMatchCreated) {
+      console.log("Broadcast event: Match Created!");
+      console.log(res.app.locals.broadcastMatchCreated);
+      res.app.locals.broadcastMatchCreated(event);
+    }
 
     res.status(201).json({ data: event });
   } catch (error) {
